@@ -18,6 +18,10 @@ function M.apply(config)
     mods = 'OPT',
     action = act.SendKey { key = 'f', mods = 'ALT' },
   })
+
+  -- Jump to (or create + SSH into) each server workspace with Cmd+<key>.
+  -- Cmd is used instead of Ctrl+Alt because Option is the shell's Meta on macOS.
+  require('workspaces').add_server_keys(config, 'CMD')
 end
 
 return M
