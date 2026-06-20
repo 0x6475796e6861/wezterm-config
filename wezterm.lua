@@ -4,8 +4,8 @@ local config = wezterm.config_builder()
 -- Hide the title bar while keeping the window resizable.
 config.window_decorations = 'RESIZE'
 
--- Workspaces: SSH domains, switcher, create prompt, status bar (cross-platform).
-require('workspaces').apply(config)
+-- Named tabs/windows, tab navigator, and a status indicator (cross-platform).
+require('navigation').apply(config)
 
 -- Load platform-specific configuration.
 if wezterm.target_triple:find('darwin') ~= nil then
