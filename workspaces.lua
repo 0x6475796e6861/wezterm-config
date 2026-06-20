@@ -3,14 +3,10 @@ local act = wezterm.action
 
 local M = {}
 
--- Cross-platform workspace setup: SSH domains, switcher, create prompt, status bar.
+-- Cross-platform workspace setup: switcher, create prompt, status bar.
+-- Workspaces are local only; for remote work use tmux or `wezterm ssh`.
 function M.apply(config)
   config.keys = config.keys or {}
-
-  -- SSH domains are generated from every Host in ~/.ssh/config, so any server
-  -- can back a workspace without hardcoding it here. Remotes need wezterm
-  -- installed for the multiplexing (SSHMUX) variants.
-  config.ssh_domains = wezterm.default_ssh_domains()
 
   -- Fuzzy-select an existing workspace.
   table.insert(config.keys, {
