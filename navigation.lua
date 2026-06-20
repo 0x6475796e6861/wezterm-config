@@ -4,40 +4,74 @@ local mux = wezterm.mux
 
 local M = {}
 
--- Windows we've already prompted to name, keyed by window id, so the auto-prompt
--- fires at most once per window.
-local prompted = {}
+-- Our own window-name store, keyed by window id as a STRING (wezterm.GLOBAL
+-- objects can only be indexed by string keys). Window names live here rather
+-- than in the mux window title because the shell continuously overwrites the
+-- window title via OSC escape sequences, so a title-based name never sticks.
+-- GLOBAL persists across config reloads; window ids and GLOBAL both reset on
+-- app restart, so the "window-<id>" defaults reapply cleanly.
+wezterm.GLOBAL.window_names = wezterm.GLOBAL.window_names or {}
 
-local function rename_window(window, line)
-  if line and line ~= '' then
-    window:mux_window():set_title(line)
+-- Read a window's name, assigning the default "window-<id>" the first time.
+local function window_name(win)
+  local key = tostring(win:window_id())
+  local names = wezterm.GLOBAL.window_names
+  if names[key] == nil then
+    names[key] = 'untitled-window-' .. key
+    -- Reassign the whole table: GLOBAL ignores in-place writes to nested tables.
+    wezterm.GLOBAL.window_names = names
   end
+  return names[key]
 end
 
--- Fuzzy tab picker across every window, each entry labelled "<window> / <tab>"
--- so the window name is shown and included in the filter text.
-local tab_navigator = wezterm.action_callback(function(window, pane)
+-- Store a new name for a window.
+local function set_window_name(win, name)
+  local key = tostring(win:window_id())
+  local names = wezterm.GLOBAL.window_names
+  names[key] = name
+  wezterm.GLOBAL.window_names = names
+end
+
+-- Materialize a tab's default title ("tab-<id>") while it is unset, then return
+-- it. Tab titles are independent of the shell's OSC sequences, so this sticks
+-- and `wezterm cli set-tab-title` works normally.
+local function ensure_tab_title(tab)
+  if tab:get_title() == '' then
+    tab:set_title('untitled-tab-' .. tostring(tab:tab_id()))
+  end
+  return tab:get_title()
+end
+
+-- Fuzzy tab picker across every window, exposed via the command palette. Each
+-- entry is "<window> / <tab>", so typing a window name narrows to its tabs.
+local function tab_navigator(window, pane)
   local choices = {}
-  for _, win in ipairs(mux.all_windows()) do
-    local win_title = win:get_title()
-    for _, tab in ipairs(win:tabs()) do
+  for _, win in ipairs(mux.all_windows() or {}) do
+    local wl = window_name(win)
+    for _, tab in ipairs(win:tabs() or {}) do
       table.insert(choices, {
-        id = tostring(tab:tab_id()),
-        label = string.format('%s / %s', win_title, tab:get_title()),
+        id    = tostring(tab:tab_id()),
+        label = wl .. ' / ' .. ensure_tab_title(tab),
       })
     end
   end
 
+  if #choices == 0 then
+    return
+  end
+
   window:perform_action(act.InputSelector {
-    title = 'Go to tab',
-    fuzzy = true,
+    title   = 'Go to tab',
+    fuzzy   = true,
     choices = choices,
-    action = wezterm.action_callback(function(_, _, id)
+    -- The selected id is the tab_id as a string. Find the matching tab,
+    -- activate it, then bring its window to the front.
+    action  = wezterm.action_callback(function(_, _, id)
       if not id then
         return
       end
-      for _, win in ipairs(mux.all_windows()) do
-        for _, tab in ipairs(win:tabs()) do
+      for _, win in ipairs(mux.all_windows() or {}) do
+        for _, tab in ipairs(win:tabs() or {}) do
           if tostring(tab:tab_id()) == id then
             tab:activate()
             local gui = win:gui_window()
@@ -50,65 +84,64 @@ local tab_navigator = wezterm.action_callback(function(window, pane)
       end
     end),
   }, pane)
-end)
+end
 
--- Cross-platform tab/window naming and switching. Tabs are per-window and
--- independent, so named tabs give labeled contexts without the global-swap
--- behaviour of workspaces.
+-- Prompt to rename the active tab (sets the real mux tab title).
+local function rename_tab(window, pane)
+  window:perform_action(act.PromptInputLine {
+    description = 'Tab name',
+    action = wezterm.action_callback(function(win, _, line)
+      if line and line ~= '' then
+        win:active_tab():set_title(line)
+      end
+    end),
+  }, pane)
+end
+
+-- Prompt to rename the current window. The shell owns the window title, so a
+-- name can't go through `wezterm cli set-window-title`; this writes our store.
+local function rename_window(window, pane)
+  window:perform_action(act.PromptInputLine {
+    description = 'Window name',
+    action = wezterm.action_callback(function(win, _, line)
+      if line and line ~= '' then
+        set_window_name(win:mux_window(), line)
+      end
+    end),
+  }, pane)
+end
+
 function M.apply(config)
-  config.keys = config.keys or {}
-
-  -- Go to a tab by name, across all windows.
-  table.insert(config.keys, {
-    key = 'g',
-    mods = 'CTRL|SHIFT',
-    action = tab_navigator,
-  })
-
-  -- Rename the active tab.
-  table.insert(config.keys, {
-    key = 'e',
-    mods = 'CTRL|SHIFT',
-    action = act.PromptInputLine {
-      description = 'Tab name',
-      action = wezterm.action_callback(function(window, _, line)
-        if line and line ~= '' then
-          window:active_tab():set_title(line)
-        end
-      end),
-    },
-  })
-
-  -- Rename the active window.
-  table.insert(config.keys, {
-    key = 'i',
-    mods = 'CTRL|SHIFT',
-    action = act.PromptInputLine {
-      description = 'Window name',
-      action = wezterm.action_callback(function(window, _, line)
-        prompted[window:window_id()] = true
-        rename_window(window, line)
-      end),
-    },
-  })
-
-  -- When a window first gains focus (i.e. opens), prompt for its name once.
-  wezterm.on('window-focus-changed', function(window, pane)
-    local id = window:window_id()
-    if window:is_focused() and not prompted[id] then
-      prompted[id] = true
-      window:perform_action(act.PromptInputLine {
-        description = 'Window name',
-        action = wezterm.action_callback(function(win, _, line)
-          rename_window(win, line)
-        end),
-      }, pane)
+  -- Keep the default "<index>: <title>" tab-bar look; the title text falls back
+  -- to "tab-<id>" until renamed. ensure_tab_title materializes the same value,
+  -- so the bar, the navigator, and `wezterm cli list` agree.
+  wezterm.on('format-tab-title', function(tab)
+    local title = tab.tab_title
+    if title == nil or title == '' then
+      title = 'untitled-tab-' .. tostring(tab.tab_id)
     end
+    return string.format('%d: %s', tab.tab_index + 1, title)
   end)
 
-  -- The title bar is hidden, so surface the window name at the right of the tab bar.
+  -- The navigator and window rename live in the command palette
+  -- (Cmd/Ctrl+Shift+P) instead of key bindings.
+  wezterm.on('augment-command-palette', function()
+    return {
+      { brief = 'Go to tab',     icon = 'md_tab_search',  action = wezterm.action_callback(tab_navigator) },
+      { brief = 'Rename tab',    icon = 'md_rename_box',  action = wezterm.action_callback(rename_tab) },
+      { brief = 'Rename window', icon = 'md_dock_window', action = wezterm.action_callback(rename_window) },
+    }
+  end)
+
+  -- Materialize default tab titles for the focused window, and show the window
+  -- name bottom-right (the OS title bar is hidden).
   wezterm.on('update-right-status', function(window)
-    window:set_right_status(window:mux_window():get_title())
+    local mw = window:mux_window()
+    for _, tab in ipairs(mw:tabs() or {}) do
+      ensure_tab_title(tab)
+    end
+    -- Trailing spaces pad the name off the right edge of the tab bar.
+    window:set_right_status(window_name(mw) .. '  ')
   end)
 end
 
