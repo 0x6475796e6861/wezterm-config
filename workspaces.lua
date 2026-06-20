@@ -38,7 +38,7 @@ function M.apply(config)
   })
 
   -- Surface the active workspace name at the right end of the tab bar.
-  wezterm.on('update-right-status', function(window, _pane)
+  wezterm.on('update-right-status', function(window)
     window:set_right_status(window:active_workspace())
   end)
 end
