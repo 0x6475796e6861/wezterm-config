@@ -3,14 +3,9 @@ local act = wezterm.action
 
 local M = {}
 
--- One workspace per server. These are PLACEHOLDERS — edit remote_address and
--- username for each box before the jump keys will actually connect.
-M.servers = {
-  { name = 'dev',      remote_address = 'dev.example.com',      username = 'user' },
-  { name = 'db',       remote_address = 'db.example.com',       username = 'user' },
-  { name = 'platform', remote_address = 'platform.example.com', username = 'user' },
-  { name = 'observ',   remote_address = 'observ.example.com',   username = 'user' },
-}
+-- One workspace per server. Each name is also the Host alias in ~/.ssh/config,
+-- which supplies HostName, User, Port, IdentityFile, ProxyJump, etc.
+M.servers = { 'dev', 'db', 'platform', 'observ' }
 
 -- Mnemonic key letter per server (combined with a platform modifier elsewhere).
 local key_for = {
@@ -25,12 +20,13 @@ function M.apply(config)
   config.keys = config.keys or {}
 
   -- One ssh_domain per server, so a workspace can spawn directly into it.
+  -- Connection details are resolved from ~/.ssh/config via the alias; the
+  -- remote must have wezterm installed (multiplexing defaults to 'WezTerm').
   config.ssh_domains = config.ssh_domains or {}
-  for _, s in ipairs(M.servers) do
+  for _, name in ipairs(M.servers) do
     table.insert(config.ssh_domains, {
-      name = s.name,
-      remote_address = s.remote_address,
-      username = s.username,
+      name = name,
+      remote_address = name,
     })
   end
 
@@ -41,7 +37,7 @@ function M.apply(config)
     action = act.ShowLauncherArgs { flags = 'FUZZY|WORKSPACES' },
   })
 
-  -- Surface the active workspace name in the bottom-right status area.
+  -- Surface the active workspace name at the right end of the tab bar.
   wezterm.on('update-right-status', function(window, _pane)
     window:set_right_status(window:active_workspace())
   end)
@@ -53,13 +49,13 @@ end
 -- workspaces that already exist, so these are how each one gets created.
 function M.add_server_keys(config, mods)
   config.keys = config.keys or {}
-  for _, s in ipairs(M.servers) do
+  for _, name in ipairs(M.servers) do
     table.insert(config.keys, {
-      key = key_for[s.name],
+      key = key_for[name],
       mods = mods,
       action = act.SwitchToWorkspace {
-        name = s.name,
-        spawn = { domain = { DomainName = s.name } },
+        name = name,
+        spawn = { domain = { DomainName = name } },
       },
     })
   end

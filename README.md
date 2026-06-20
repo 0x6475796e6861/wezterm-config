@@ -19,10 +19,11 @@ One persistent, named, reconnectable workspace per server — like iTerm profile
 
 - <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd> — fuzzy-select an existing workspace.
 - Jump to (or create + SSH into) a server's workspace: <kbd>Cmd</kbd>+<kbd>d/b/p/o</kbd> on macOS, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>d/b/p/o</kbd> elsewhere (`dev`, `db`, `platform`, `observ`).
-- The active workspace name shows in the bottom-right status bar.
+- The active workspace name shows at the right end of the tab bar.
 
-The server list in `workspaces.lua` uses **placeholder** hosts (`*.example.com`) — edit
-`remote_address` and `username` for each box before the jump keys will connect.
+The server names in `workspaces.lua` double as `Host` aliases in `~/.ssh/config`, which
+supplies the hostname, user, port, and identity. The remote must have wezterm installed
+(domains use WezTerm multiplexing).
 
 ## Install
 
