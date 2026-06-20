@@ -5,7 +5,7 @@ My personal [WezTerm](https://wezterm.org) configuration, meant to be used acros
 ## Files
 
 - `wezterm.lua` — entry point. Sets cross-platform options and loads platform-specific modules.
-- `workspaces.lua` — one workspace per server, SSH domains, fuzzy switcher, status bar.
+- `workspaces.lua` — workspace switcher, create-by-name prompt, auto SSH domains, status bar.
 - `macos.lua` — macOS-only configuration, applied via `apply(config)`.
 
 ## What it does
@@ -15,15 +15,16 @@ My personal [WezTerm](https://wezterm.org) configuration, meant to be used acros
 
 ### Workspaces
 
-One persistent, named, reconnectable workspace per server — like iTerm profiles + tmux sessions, natively.
+Persistent, named, reconnectable workspaces — like iTerm profiles + tmux sessions, natively.
 
 - <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd> — fuzzy-select an existing workspace.
-- Jump to (or create + SSH into) a server's workspace: <kbd>Cmd</kbd>+<kbd>d/b/p/o</kbd> on macOS, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>d/b/p/o</kbd> elsewhere (`dev`, `db`, `platform`, `observ`).
+- <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> — prompt for a name, then create/switch to that workspace.
 - The active workspace name shows at the right end of the tab bar.
 
-The server names in `workspaces.lua` double as `Host` aliases in `~/.ssh/config`, which
-supplies the hostname, user, port, and identity. The remote must have wezterm installed
-(domains use WezTerm multiplexing).
+SSH domains are generated automatically from every `Host` in `~/.ssh/config` via
+`wezterm.default_ssh_domains()`, so any server can back a workspace (spawn into a domain from
+the launcher, or `wezterm connect <host>`). Remotes need wezterm installed for the
+multiplexing (`SSHMUX`) variants.
 
 ## Install
 
