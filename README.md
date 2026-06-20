@@ -17,9 +17,10 @@ My personal [WezTerm](https://wezterm.org) configuration, meant to be used acros
 
 Named tabs give labeled, independent contexts within a window — no global workspace swapping.
 
-- <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> — **g**o to a tab via a searchable list (tab navigator).
+- <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> — **g**o to a tab via a searchable list across **all** windows; each entry is labelled `window / tab`, and the window name is part of the filter text.
 - <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> — **e**dit (rename) the active tab.
 - <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> — rename the active window.
+- Opening a window prompts once for its name (skippable with <kbd>Esc</kbd>).
 - The active window name shows at the right end of the tab bar (the title bar is hidden).
 
 Plus WezTerm's defaults: <kbd>Cmd</kbd>/<kbd>Ctrl+Shift</kbd>+<kbd>1…9</kbd> jump to a tab, and
